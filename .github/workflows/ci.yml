@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: ["**"]
 
+# Cancel superseded runs on the same ref so a fast-follow push does not
+# keep an outdated build alive next to the new one. Main is kept (we want
+# every merged commit's CI result), branches are racy and can be cancelled.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 env:
   CARGO_TERM_COLOR: always
   CARGO_NET_GIT_FETCH_WITH_CLI: true
@@ -17,49 +24,40 @@ env:
 # and track stable semantics under their major versions.
 
 jobs:
-  # ── Lint + test matrix (gnu and musl) ────────────────────────────────────
+  # ── Lint + test (x86_64-unknown-linux-gnu) ───────────────────────────────
+  # musl was previously part of a matrix here. Removed because nothing
+  # ships a musl artifact (Dockerfile builds glibc top-to-bottom) and the
+  # canary was costing ~7 min/run without catching anything not already
+  # caught by gnu. Re-add a musl job alongside this one when a musl
+  # artifact is actually published.
   build-and-test:
-    name: build-and-test (${{ matrix.target }})
+    name: build-and-test
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - x86_64-unknown-linux-musl
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4   # pinned to major v4
+        uses: actions/checkout@v6   # pinned to major v4
 
-      - name: Install Rust stable + target
+      - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable   # pinned to major stable channel
-        with:
-          targets: ${{ matrix.target }}
 
       - name: Cache Cargo registry and build artifacts
         uses: Swatinem/rust-cache@v2   # pinned to major v2
-        with:
-          key: ${{ matrix.target }}
-
-      - name: Install musl toolchain (musl target only)
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: sudo apt-get update -q && sudo apt-get install -y musl-tools
 
       - name: Check formatting
         run: cargo fmt --all -- --check
 
       - name: Clippy (treat warnings as errors)
-        run: cargo clippy --all-targets --target ${{ matrix.target }} -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Clippy all features (treat warnings as errors)
-        run: cargo clippy --all-targets --all-features --target ${{ matrix.target }} -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Run tests
-        run: cargo test --target ${{ matrix.target }}
+        run: cargo test
 
       - name: Run all-features tests
-        run: cargo test --all-features --target ${{ matrix.target }}
+        run: cargo test --all-features
 
   # ── cargo-deny (license + advisory + bans) ───────────────────────────────
   deny:
@@ -67,13 +65,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4   # pinned to major v4
+        uses: actions/checkout@v6   # pinned to major v4
 
       - name: Run cargo-deny
         uses: EmbarkStudios/cargo-deny-action@v2   # pinned to major v2
         with:
+          # `arguments` defaults to `--all-features` and is interpolated
+          # BEFORE the subcommand. The check types are positional args of
+          # `check`, so they belong in `command-arguments`.
           command: check
-          arguments: licenses advisories bans sources
+          command-arguments: licenses advisories bans sources
 
   # ── Postgres-backed datasource integration ───────────────────────────────
   postgres-integration:
@@ -93,7 +94,7 @@ jobs:
           --health-retries 12
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -114,7 +115,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      # Buildx + GHA cache backend persists the Dockerfile's
+      # `RUN --mount=type=cache` cargo registry and target directories
+      # across runs. First run is a cold compile; subsequent runs reuse
+      # the cargo caches and only rebuild changed crates.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Build container image
-        run: docker build -t registry-relay:ci .
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          tags: registry-relay:ci
+          load: false
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
