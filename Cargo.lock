@@ -4483,7 +4483,7 @@ dependencies = [
  "futures",
  "geojson",
  "getrandom 0.4.2",
- "hmac 0.12.1",
+ "hmac 0.13.0",
  "http-api-problem",
  "humantime-serde",
  "insta",
