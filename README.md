@@ -25,6 +25,7 @@ Standards integrations such as DCAT-AP, OGC API Records, OGC API Features, Publi
 
 - [config/example.yaml](config/example.yaml): canonical example config.
 - [docs/configuration.md](docs/configuration.md): operator-facing configuration reference.
+- [docs/xlsx-readiness-contract.md](docs/xlsx-readiness-contract.md): checklist for using XLSX workbooks as stable Registry Relay sources.
 - [docs/api.md](docs/api.md): authentication, endpoint, filtering, pagination, and error contract.
 - [docs/metadata.md](docs/metadata.md): portable metadata manifests, static publication, and `/metadata/*` routes.
 - [STANDARDS_ASSUMPTIONS.md](STANDARDS_ASSUMPTIONS.md): standards evidence,
