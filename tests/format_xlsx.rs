@@ -514,6 +514,25 @@ fn build_formula_xlsx() -> Vec<u8> {
     )
 }
 
+fn build_uncached_formula_xlsx() -> Vec<u8> {
+    build_minimal_xlsx(
+        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <dimension ref="A1:B2"/>
+  <sheetData>
+    <row r="1">
+      <c r="A1" t="inlineStr"><is><t>id</t></is></c>
+      <c r="B1" t="inlineStr"><is><t>amount</t></is></c>
+    </row>
+    <row r="2">
+      <c r="A2"><v>1</v></c>
+      <c r="B2"><f>A2*2</f></c>
+    </row>
+  </sheetData>
+</worksheet>"#,
+    )
+}
+
 /// The synthetic-bomb helper above must actually be a workbook calamine
 /// will open. This sanity test uses a tiny dimension so `worksheet_range`
 /// is cheap and the bomb-guard path is not exercised. If this fails, the
@@ -618,6 +637,39 @@ async fn rejects_formula_cells_inside_configured_range() {
         }
         Err(other) => panic!("expected FormatError::Parse, got {other:?}"),
         Ok(_) => panic!("expected formula cells in the ingest range to fail"),
+    }
+}
+
+#[tokio::test]
+async fn rejects_formula_cells_without_cached_value_inside_configured_range() {
+    let hints = FormatHints {
+        declared: schema_with(vec![
+            field("id", FieldType::Integer),
+            field("amount", FieldType::Number),
+        ]),
+        ..hints_default()
+    };
+
+    let result = XlsxFormat::new()
+        .decode(
+            Box::pin(std::io::Cursor::new(build_uncached_formula_xlsx())),
+            hints,
+        )
+        .await;
+
+    match result {
+        Err(FormatError::Parse(msg)) => {
+            assert!(
+                msg.contains("formula cell"),
+                "parse error should identify formula cell rejection: {msg}"
+            );
+            assert!(
+                !msg.contains("A2*2"),
+                "parse error must not echo formula text: {msg}"
+            );
+        }
+        Err(other) => panic!("expected FormatError::Parse, got {other:?}"),
+        Ok(_) => panic!("expected uncached formula cells in the ingest range to fail"),
     }
 }
 
