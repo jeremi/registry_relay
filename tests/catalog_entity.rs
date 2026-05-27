@@ -978,6 +978,7 @@ async fn catalog_returns_etag_and_honors_if_none_match() {
 
     cached.assert_status(StatusCode::NOT_MODIFIED);
     assert_eq!(cached.header("etag").to_str().expect("etag"), etag);
+    assert_private_metadata_headers(&cached);
 }
 
 #[tokio::test]

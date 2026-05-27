@@ -350,6 +350,13 @@ async fn build_auth(config: &Config) -> Result<AuthProviderRef, Error> {
 /// lazily by the cache on first verify, so a transient JWKS outage at
 /// boot does not block startup.
 async fn build_oidc_auth(oidc: &OidcConfig) -> Result<AuthProviderRef, Error> {
+    if oidc.allow_dev_insecure_fetch_urls {
+        tracing::warn!(
+            code = "oidc.dev_insecure_fetch_urls_enabled",
+            "OIDC loopback HTTP issuer, discovery, and JWKS URLs are enabled for local development"
+        );
+    }
+
     let fetcher = match (oidc.jwks_url.as_deref(), oidc.discovery_url.as_deref()) {
         (Some(jwks_url), None) => {
             let result = if oidc.allow_dev_insecure_fetch_urls {

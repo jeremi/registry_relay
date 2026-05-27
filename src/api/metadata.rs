@@ -698,7 +698,7 @@ fn with_etag(mut response: Response, etag: &str) -> Response {
 }
 
 fn not_modified_response(etag: &str) -> Response {
-    with_etag(StatusCode::NOT_MODIFIED.into_response(), etag)
+    with_private_metadata_headers(with_etag(StatusCode::NOT_MODIFIED.into_response(), etag))
 }
 
 fn with_private_metadata_headers(mut response: Response) -> Response {
