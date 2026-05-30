@@ -7,7 +7,7 @@ cargo_platform_input="${repo_root}/../registry-platform"
 
 absolute_dir() {
   local dir="$1"
-  (cd "${dir}" && pwd -L)
+  (cd "${dir}" && pwd -P)
 }
 
 if [[ ! -f "${platform_input}/Cargo.toml" ]]; then
