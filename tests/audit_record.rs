@@ -199,20 +199,17 @@ fn record_field_types_match_contract() {
 }
 
 #[test]
-fn record_serialization_hashes_plaintext_table_id() {
+fn record_serialization_rejects_plaintext_table_id() {
     let record = AuditRecord {
         table_id: Some("individuals_table".to_string()),
         ..sample_record()
     };
 
-    let json = serde_json::to_value(&record).expect("serialize");
-    assert!(json["table_id"].is_null());
-    assert_ne!(json["table_id_hash"], "individuals_table");
-    assert!(json["table_id_hash"]
-        .as_str()
-        .expect("table id hash")
-        .starts_with("sha256:"));
-    assert!(!json.to_string().contains("individuals_table"));
+    let error = serde_json::to_value(&record).expect_err("plaintext table id is rejected");
+    assert!(
+        error.to_string().contains("table_id must be pre-hashed"),
+        "unexpected error: {error}"
+    );
 }
 
 #[test]

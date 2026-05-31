@@ -21,7 +21,7 @@ fn sample_record(request_id: usize) -> AuditRecord {
         endpoint_kind: EndpointKind::Rows,
         dataset_id: Some("social_registry".to_string()),
         entity_name: Some("individuals".to_string()),
-        table_id: Some("individuals".to_string()),
+        table_id: Some("hmac-sha256:test-table-id".to_string()),
         relationship: None,
         aggregate_id: None,
         underlying_kind: None,
