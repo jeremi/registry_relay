@@ -101,7 +101,7 @@ pub fn sensitive_value_hash(field: &str, value: &str) -> String {
 /// Hash `field || \0 || value` through the platform audit hasher.
 #[must_use]
 pub fn sensitive_value_hash_keyed(hasher: &AuditKeyHasher, field: &str, value: &str) -> String {
-    hasher.hash(&format!("{field}\0{value}"))
+    hasher.sensitive_value_hash(field, value)
 }
 
 #[must_use]
